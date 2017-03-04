@@ -1,0 +1,340 @@
+<!DOCTYPE html>
+<html lang="en">
+	<head>
+		<meta charset="UTF-8" />
+		<style type="text/css">
+			#filedrag,body{text-align:center}body{color:#000;font-family:Monospace;font-size:13px;font-weight:700;background-color:#fff;margin:0;overflow:hidden}h1,h2{font-size:1.5em;font-weight:400}h2{font-size:1.3em}legend{font-weight:700;color:#333}#filedrag{display:none;font-weight:700;padding:1em 0;margin:1em 0;color:#555;border:2px dashed #555;border-radius:7px;cursor:default;height:300px;background:#CCC}#filedrag.hover{color:red;border-color:red;border-style:solid;box-shadow:inset 0 3px 4px #888}img{max-width:100%}pre{width:95%;height:8em;font-family:monospace;font-size:.9em;padding:1px 2px;margin:0 0 1em auto;border:1px inset #666;background-color:#eee;overflow:auto}#messages{padding:0 10px;margin:1em 0;border:1px solid #999}#progress p{display:block;width:240px;padding:2px 5px;margin:2px 0;border:1px inset #446;border-radius:5px;background:url(progress.png) 100% 0 repeat-y #eee}#progress p.success{background:no-repeat #0c0}#progress p.failed{background:no-repeat #c00}#uploadDiv{padding-top:100px;display:block;width:700px;margin:auto}
+		</style>
+		<script src="js/three.min.js"></script>
+		<script src="js/RGBELoader.js"></script>
+		<script src="js/Detector.js"></script>
+		<script src="js/TrackballControls.js"></script>
+		<script src='js/dat.gui.min.js'></script>
+	</head>
+	<body>
+		<div id="container"></div>
+		<div id="uploadDiv">
+			<form id="upload" action="index.html" method="POST" enctype="multipart/form-data">
+
+				<fieldset>
+				<legend>HTML File Upload</legend>
+
+				<input type="hidden" id="MAX_FILE_SIZE" name="MAX_FILE_SIZE" value="300000" />
+
+				<div>
+					<label for="fileselect">Files to upload:</label>
+					<input type="file" id="fileselect" name="fileselect[]" multiple="multiple" />
+					<div id="filedrag">or drop files here</div>
+				</div>
+
+				<div id="submitbutton">
+					<button type="submit">Upload Files</button>
+				</div>
+
+				</fieldset>
+
+			</form>
+
+			<div id="messages">
+			<p>Status Messages</p>
+			</div>
+		</div>
+
+		<script>
+		var imageParedeSRC,imageQuadroSRC;
+
+		(function() {
+
+			function $id(id) 
+			{
+				return document.getElementById(id);
+			}
+
+			function Output(msg) 
+			{
+				var m = $id("messages");
+				m.innerHTML = msg + m.innerHTML;
+			}
+
+			function FileDragHover(e) 
+			{
+				e.stopPropagation();
+				e.preventDefault();
+				e.target.className = (e.type == "dragover" ? "hover" : "");
+			}
+
+			function FileSelectHandler(e) 
+			{
+				FileDragHover(e);
+				var files = e.target.files || e.dataTransfer.files;
+
+				for (var i = 0, f; f = files[i]; i++) 
+				{
+					ParseFile(f);
+				}
+
+			}
+
+			function ParseFile(file) 
+			{
+
+				var reader = new FileReader();
+				reader.onload = function(e) { 
+				    var base64URL = e.target.result;
+				    if (!imageParedeSRC)
+				    {
+				    	imageParedeSRC = base64URL;
+				    }
+				    else if(!imageQuadroSRC)
+				    {
+				    	imageQuadroSRC = base64URL;
+				    	document.getElementById("uploadDiv").remove();
+				    	uploadFinished();
+				    }
+				};
+				reader.readAsDataURL(file);
+				Output(	"<p>Foto: <strong>" + file.name );
+
+			}
+
+			function Init() 
+			{
+
+				var fileselect = $id("fileselect"),
+					filedrag = $id("filedrag"),
+					submitbutton = $id("submitbutton");
+
+				fileselect.addEventListener("change", FileSelectHandler, false);
+
+				var xhr = new XMLHttpRequest();
+				if (xhr.upload) 
+				{
+
+					filedrag.addEventListener("dragover", FileDragHover, false);
+					filedrag.addEventListener("dragleave", FileDragHover, false);
+					filedrag.addEventListener("drop", FileSelectHandler, false);
+					filedrag.style.display = "block";
+					submitbutton.style.display = "none";
+				}
+
+			}
+
+			if (window.File && window.FileList && window.FileReader) 
+			{
+				Init();
+			}
+
+		})();
+
+		function uploadFinished() 
+		{
+			if ( ! Detector.webgl ) Detector.addGetWebGLMessage();
+
+			var params = 
+			{
+				Quadro_Luz : 1,
+				Abertura_Camera : 60,
+				Zoom_X : 1,
+				Zoom_Y : 1,
+				Salvar_Imagem: function(){
+
+					function dataURLtoBlob(dataurl) 
+					{
+					    var arr = dataurl.split(','), mime = arr[0].match(/:(.*?);/)[1],
+					        bstr = atob(arr[1]), n = bstr.length, u8arr = new Uint8Array(n);
+					    while(n--){
+					        u8arr[n] = bstr.charCodeAt(n);
+					    }
+					    return new Blob([u8arr], {type:mime});
+					}
+
+					var link = document.createElement("a");
+					imgData = renderer.domElement.toDataURL({ format: 'png',
+					multiplier: 4});
+					var strDataURI = imgData.substr(22, imgData.length);
+					var blob = dataURLtoBlob(imgData);
+					var objurl = URL.createObjectURL(blob);
+
+					link.download = 'imagem.png';
+					link.href = objurl;
+					link.click();
+				},
+			}
+
+			var renderer,container;
+
+			renderer = new THREE.WebGLRenderer({ antialias: true ,preserveDrawingBuffer: true, alpha: false});
+			renderer.setPixelRatio( window.devicePixelRatio );
+			renderer.setSize( window.innerWidth, window.innerHeight );
+			renderer.setClearColor( 0x000, 1);
+
+			container = document.getElementById( 'container' );
+			container.appendChild( renderer.domElement );
+
+			var cameraWall, sceneWall, aspectImage, planeWall, imageWall;
+
+			cameraWall = new THREE.OrthographicCamera( window.innerWidth / - 2, window.innerWidth / 2, window.innerHeight / 2, window.innerHeight / - 2, 0, 1000 );
+			cameraWall.position.z = 900;
+
+			sceneWall = new THREE.Scene();
+
+			var callbackWall = function () 
+			{
+				var image = textureWall.image;
+
+				aspectImage = image.width/image.height;
+
+				planeWall = new THREE.Mesh( new THREE.PlaneBufferGeometry( image.width, image.height ), materialWall );
+				planeWall.position.z = 1;
+
+				cameraWall.left = -image.width / 2;
+				cameraWall.right = image.width / 2;
+				cameraWall.top = image.height / 2;
+				cameraWall.bottom = -image.height / 2;
+				cameraWall.updateProjectionMatrix();
+				onWindowResize();
+
+				textureWall.needsUpdate = true;
+
+				sceneWall.add( planeWall );
+				animate();
+			}
+			var imageParede = new Image();
+			var textureWall = new THREE.Texture(imageParede);
+			imageParede.onload = callbackWall;
+			imageParede.src = imageParedeSRC;
+
+			var materialWall = new THREE.MeshBasicMaterial( { color: 0xffffff, map: textureWall } );
+			materialWall.depthTest = false;
+        	materialWall.depthWrite = false;
+			textureWall.minFilter = textureWall.magFilter = THREE.LinearFilter;
+			textureWall.mapping = THREE.UVMapping;
+
+			var cameraPainting, scenePainting, aspectImageP, planePainting,controls;
+
+			cameraPainting = new THREE.PerspectiveCamera( params.Abertura_Camera, aspectImage, 1, 10000 );
+			cameraPainting.position.z = 900;
+			cameraPainting.position.x = 0;
+			cameraPainting.position.y = 0;
+
+			controls = new THREE.TrackballControls( cameraPainting,container );
+			controls.rotateSpeed = 1.0;
+			controls.zoomSpeed = 1.2;
+			controls.panSpeed = 0.8;
+			controls.noZoom = false;
+			controls.noPan = false;
+			controls.staticMoving = true;
+			controls.dynamicDampingFactor = 0.3;
+			controls.keys = [ 65, 83, 68 ];
+
+			scenePainting = new THREE.Scene();
+
+			var callbackPainting = function () 
+			{
+				var image = texturePainting.image;
+
+				aspectImageP = image.width/image.height;
+
+				cameraPainting.aspect  = aspectImage;
+				cameraPainting.updateProjectionMatrix();
+
+				planePainting = new THREE.Mesh( new THREE.PlaneBufferGeometry( window.innerWidth/4, window.innerWidth/4/aspectImageP ), materialPainting );
+				planePainting.position.z = 1;
+
+				onWindowResize();
+
+				texturePainting.needsUpdate = true;
+
+				scenePainting.add( planePainting );
+				animate();
+			}
+
+			var imageQuadro = new Image();
+			var texturePainting = new THREE.Texture(imageQuadro);
+			imageQuadro.onload = callbackPainting;
+			imageQuadro.src = imageQuadroSRC;
+
+			var materialPainting = new THREE.MeshPhongMaterial( { color: 0xffffff, map: texturePainting } );
+			// var materialPainting = new THREE.MeshBasicMaterial( { color: 0xffffff, map: texturePainting } );
+			materialPainting.depthTest = false;
+        	materialPainting.depthWrite = false;
+			texturePainting.minFilter = texturePainting.magFilter = THREE.LinearFilter;
+			texturePainting.mapping = THREE.UVMapping;
+
+			var ambient = new THREE.AmbientLight( 0xffffff, 1 );
+			scenePainting.add( ambient );
+
+			// var spotLight = new THREE.SpotLight( 0xffffff, 1 );
+			// var lightHelper;
+
+			// spotLight.position.set( 15, 40, 35 );
+			// spotLight.castShadow = true;
+			// spotLight.angle = Math.PI / 4;
+			// spotLight.penumbra = 0.05;
+			// spotLight.decay = 2;
+			// spotLight.distance = 200;
+			// spotLight.shadow.mapSize.width = 1024;
+			// spotLight.shadow.mapSize.height = 1024;
+			// spotLight.shadow.camera.near = 1;
+			// spotLight.shadow.camera.far = 200;
+
+			// lightHelper = new THREE.SpotLightHelper( spotLight );
+
+			// scenePainting.add( spotLight );
+			// scenePainting.add( new THREE.AxisHelper( 10 ) );
+			// scenePainting.add( lightHelper );
+
+			function updateScene() {
+
+				// planePainting.material.color.r = planePainting.material.color.g = planePainting.material.color.b =params.Quadro_Luz;
+				ambient.intensity = params.Quadro_Luz;
+				cameraPainting.fov = params.Abertura_Camera;
+				cameraPainting.updateProjectionMatrix();
+				planePainting.scale.x = params.Zoom_X;
+				planePainting.scale.y = params.Zoom_Y;
+
+			}
+
+			var gui = new dat.GUI();
+			gui.width = 400;
+			gui.add( params, "Abertura_Camera", 10, 90, 0.1 ).onChange( updateScene );
+			gui.add( params, "Quadro_Luz", 0, 2.0, 0.001 ).onChange( updateScene );
+			gui.add( params, "Zoom_X", 0, 4.0, 0.001 ).onChange( updateScene );
+			gui.add( params, "Zoom_Y", 0, 4.0, 0.001 ).onChange( updateScene );
+			gui.add( params, "Salvar_Imagem");
+			gui.open();
+
+
+			window.addEventListener( 'resize', onWindowResize, false );
+
+			function onWindowResize() {
+
+				var aspectWindow = window.innerWidth/window.innerHeight;
+				if (aspectImage>aspectWindow)
+				{
+					renderer.setSize( window.innerWidth, window.innerWidth/aspectImage );
+				}
+				else
+				{
+					renderer.setSize( window.innerHeight*aspectImage, window.innerHeight );
+				}
+			}
+
+			function animate() {
+
+				requestAnimationFrame( animate );
+				controls.update();
+				render();
+			}
+
+			function render() {
+
+				renderer.autoClear = false;
+            	renderer.clear();
+				renderer.render( sceneWall, cameraWall );
+				renderer.render( scenePainting, cameraPainting );
+			}
+		}
+		</script>
+	</body>
+</html>
